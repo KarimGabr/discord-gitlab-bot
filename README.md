@@ -1,1 +1,0 @@
-# discord-gitlab-bot
