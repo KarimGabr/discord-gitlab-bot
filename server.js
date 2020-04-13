@@ -45,38 +45,22 @@ bot.login(DISCORD_TOKEN);
 bot.on("ready", () => {
   console.info(`Logged in as ${bot.user.tag}!`);
 
+  // get all text channels in server
+  // and convert Map to Array
+  // and make a new array of text channels only
+
   const server_swisodev = bot.guilds.cache.get(process.env.DISCORD_SERVER);
-
-  const channel_quran_competition = bot.channels.cache.get(
-    process.env.CHANNEL1
+  const channels = Array.from(server_swisodev.channels.cache).reduce(
+    (obj, [key, value]) => Object.assign(obj, { [key]: value }),
+    {}
   );
+  let related_channels = Object.keys(channels)
+    .filter((key) => channels[key].type == "text")
+    .map((key) => channels[key]);
 
-  const channel_wodooh = bot.channels.cache.get(process.env.CHANNEL2);
-
-  // let channels = [];
-  // function Channel1() {
-  //   return new Promise(function (res, rej) {
-  //     res(bot.channels.cache.get(process.env.CHANNEL1));
-  //   });
-  // }
-
-  // function Channel2() {
-  //   return new Promise(function (res, rej) {
-  //     res(bot.channels.cache.get(process.env.CHANNEL2));
-  //   });
-  // }
-
-  // Channel1().then((channel) => {
-  //   channels.push(channel);
-  // });
-
-  // Channel2().then((channel) => {
-  //   channels.push(channel);
-  // });
-
-  /* periodically poll to the commits api each 60s
-save the commits in the database 
-if any new id is coming within the GET request, send a notification */
+  // periodically poll to the commits api each 60s
+  // save the commits in the database
+  // if any new id is coming within the GET request, send a notification
 
   const GITLAB_TOKEN = process.env.GITLAB_TOKEN;
   const axios = require("axios");
@@ -113,23 +97,12 @@ if any new id is coming within the GET request, send a notification */
                       projectName: project.name,
                       authorName: commit.author_name,
                     }).then(() => {
-                      // const _receipt_channel = channels.find(
-                      //   (channel) => channel.name === project.namespace
-                      // );
-                      switch (project.namespace.name) {
-                        case "quran-competition":
-                          channel_quran_competition.send(
-                            `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `
-                          );
-                          break;
-                        case "wodooh":
-                          channel_wodooh.send(
-                            `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `
-                          );
-                          break;
-                        default:
-                          break;
-                      }
+                      const _receipt_channel = related_channels.find(
+                        (channel) => channel.name === project.namespace.name
+                      );
+                      _receipt_channel.send(
+                        `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `
+                      );
                     });
                   }
                 });
