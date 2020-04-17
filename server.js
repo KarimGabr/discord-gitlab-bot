@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 mongoose.Promise = require("bluebird");
 const app = express();
 const http = require("http").Server(app);
-const port = 5000;
+const port = 4445;
 
 app.use(cors());
 app.use(express.json());
@@ -100,9 +100,9 @@ bot.on("ready", () => {
                       const _receipt_channel = related_channels.find(
                         (channel) => channel.name === project.namespace.name
                       );
-                      _receipt_channel.send(
-                        `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `
-                      );
+                      const _message = `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `;
+                      console.log(_message);
+                      _receipt_channel.send(_message);
                     });
                   }
                 });
