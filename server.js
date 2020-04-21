@@ -83,29 +83,38 @@ bot.on("ready", () => {
         res.data.map((project) => {
           instance
             .get(
-              `https://gitlab.com/api/v4/projects/${project.id}/repository/commits`
+              `https://gitlab.com/api/v4/projects/${project.id}/repository/branches`
             )
             .then((res) => {
-              res.data.map((commit) => {
-                Commits.findOne({ commitID: commit.id }).then((doc) => {
-                  if (!doc) {
-                    Commits.create({
-                      commitID: commit.id,
-                      commitMessage: commit.title,
-                      commitURL: commit.web_url,
-                      commitDate: commit.committed_date,
-                      projectName: project.name,
-                      authorName: commit.author_name,
-                    }).then(() => {
-                      const _receipt_channel = related_channels.find(
-                        (channel) => channel.name === project.namespace.name
-                      );
-                      const _message = `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `;
-                      console.log(_message);
-                      _receipt_channel.send(_message);
+              res.data.map((branch) => {
+                instance
+                  .get(
+                    `https://gitlab.com/api/v4/projects/${project.id}/repository/commits?ref_name=${branch.name}`
+                  )
+                  .then((res) => {
+                    res.data.map((commit) => {
+                      Commits.findOne({ commitID: commit.id }).then((doc) => {
+                        if (!doc) {
+                          Commits.create({
+                            commitID: commit.id,
+                            commitMessage: commit.title,
+                            commitURL: commit.web_url,
+                            commitDate: commit.committed_date,
+                            projectName: project.name,
+                            authorName: commit.author_name,
+                          }).then(() => {
+                            const _receipt_channel = related_channels.find(
+                              (channel) =>
+                                channel.name === project.namespace.name
+                            );
+                            const _message = `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `;
+                            console.log(_message);
+                            _receipt_channel.send(_message);
+                          });
+                        }
+                      });
                     });
-                  }
-                });
+                  });
               });
             });
         });
