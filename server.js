@@ -107,7 +107,7 @@ bot.on("ready", () => {
                               (channel) =>
                                 channel.name === project.namespace.name
                             );
-                            const _message = `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `;
+                            const _message = `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:leaves: Branch: ${branch.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `;
                             console.log(_message);
                             _receipt_channel.send(_message);
                           });
