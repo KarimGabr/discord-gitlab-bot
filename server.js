@@ -74,7 +74,18 @@ bot.on("ready", () => {
     return config;
   });
 
+  let last_commit_date;
+
+  Commits.findOne()
+    .sort({ date: -1 })
+    .limit(1)
+    .then((doc) => {
+      last_commit_date = doc.commitDate;
+    });
+
   const intervalID = setInterval(function () {
+    console.log(last_commit_date);
+
     instance
       .get(
         `https://gitlab.com/api/v4/groups/${process.env.GITLAB_GROUP}/projects?include_subgroups=true`
@@ -89,10 +100,11 @@ bot.on("ready", () => {
               res.data.map((branch) => {
                 instance
                   .get(
-                    `https://gitlab.com/api/v4/projects/${project.id}/repository/commits?ref_name=${branch.name}`
+                    `https://gitlab.com/api/v4/projects/${project.id}/repository/commits?since=${last_commit_date}&ref_name=${branch.name}`
                   )
                   .then((res) => {
                     res.data.map((commit) => {
+                      last_commit_date = commit.committed_date;
                       Commits.findOne({ commitID: commit.id }).then((doc) => {
                         if (!doc) {
                           Commits.create({
@@ -114,6 +126,9 @@ bot.on("ready", () => {
                         }
                       });
                     });
+                  })
+                  .catch((error) => {
+                    console.log(error);
                   });
               });
             });

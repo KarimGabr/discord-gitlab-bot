@@ -38,7 +38,7 @@ router.route("/update/:id").post((req, res) => {
 });
 
 router.route("/delete_all").delete((req, res) => {
-  Commits.remove()
+  Commits.deleteMany()
     .then(() => res.json("Collection Deleted!"))
     .catch((err) => res.status(400).json("Error: " + err));
 });
