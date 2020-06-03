@@ -100,7 +100,11 @@ bot.on("ready", () => {
               res.data.map((branch) => {
                 instance
                   .get(
-                    `https://gitlab.com/api/v4/projects/${project.id}/repository/commits?since=${last_commit_date}&ref_name=${branch.name}`
+                    `https://gitlab.com/api/v4/projects/${
+                      project.id
+                    }/repository/commits?since=${
+                      last_commit_date ? last_commit_date : ""
+                    }&ref_name=${branch.name}`
                   )
                   .then((res) => {
                     res.data.map((commit) => {
