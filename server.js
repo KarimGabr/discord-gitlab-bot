@@ -80,7 +80,7 @@ bot.on("ready", () => {
     .sort({ date: -1 })
     .limit(1)
     .then((doc) => {
-      last_commit_date = doc.commitDate;
+      if (doc) last_commit_date = doc.commitDate;
     });
 
   const intervalID = setInterval(function () {
