@@ -7,6 +7,8 @@ const app = express();
 const http = require("http").Server(app);
 const port = 4445;
 
+const { startOfToday } = require("date-fns");
+
 app.use(cors());
 app.use(express.json());
 
@@ -76,6 +78,9 @@ bot.on("ready", () => {
 
   let last_commit_date;
 
+  const _today = startOfToday();
+  const today = _today.toISOString();
+
   Commits.findOne()
     .sort({ date: -1 })
     .limit(1)
@@ -103,7 +108,7 @@ bot.on("ready", () => {
                     `https://gitlab.com/api/v4/projects/${
                       project.id
                     }/repository/commits?since=${
-                      last_commit_date ? last_commit_date : ""
+                      last_commit_date ? last_commit_date : today
                     }&ref_name=${branch.name}`
                   )
                   .then((res) => {
