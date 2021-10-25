@@ -5,9 +5,7 @@ const mongoose = require("mongoose");
 mongoose.Promise = require("bluebird");
 const app = express();
 const http = require("http").Server(app);
-const port = 4445;
-
-const { startOfToday } = require("date-fns");
+const port = 4123;
 
 app.use(cors());
 app.use(express.json());
@@ -20,18 +18,14 @@ mongoose.connect("mongodb://localhost/discord_gitlab_bot", {
 const db = mongoose.connection;
 db.on("error", console.error.bind(console, "connection error:"));
 db.once("open", function () {
-  console.log("Connected to MongoDB! BECKY LEMME SMASH!");
+  console.log("Connected to MongoDB!");
 
   http.listen(port, () => {
     console.log("Listening to Port: " + port);
   });
 });
 
-mongoose.set("useFindAndModify", false);
-
-const commitsRouter = require("./routes/commits");
-app.use("/commits", commitsRouter);
-let Commits = require("./models/commits");
+let MergeRequests = require("./models/mergeRequests");
 
 const Discord = require("discord.js");
 const bot = new Discord.Client();
@@ -45,7 +39,7 @@ Object.keys(botCommands).map((key) => {
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 bot.login(DISCORD_TOKEN);
 bot.on("ready", () => {
-  console.info(`Logged in as ${bot.user.tag}!`);
+  console.log(`Logged in as ${bot.user.tag}!`);
 
   // get all text channels in server
   // and convert Map to Array
@@ -60,15 +54,14 @@ bot.on("ready", () => {
     .filter((key) => channels[key].type == "text")
     .map((key) => channels[key]);
 
-  // periodically poll to the commits api each 60s
-  // save the commits in the database
+  // periodically poll to the merge-requests api each 60s
+  // save the merge-requests in the database
   // if any new id is coming within the GET request, send a notification
 
   const GITLAB_TOKEN = process.env.GITLAB_TOKEN;
   const axios = require("axios");
-  const instance = axios.create({});
 
-  instance.interceptors.request.use((config) => {
+  axios.interceptors.request.use((config) => {
     config = {
       ...config,
       headers: { "Private-Token": GITLAB_TOKEN },
@@ -76,87 +69,42 @@ bot.on("ready", () => {
     return config;
   });
 
-  let last_commit_date;
+  setInterval(async () => {
+    const now = new Date();
+    const nowISO = now.toISOString();
 
-  const _today = startOfToday();
-  const today = _today.toISOString();
+    const apiRequest = await axios.get(
+      `https://gitlab.com/api/v4/groups/${process.env.GITLAB_GROUP}/merge_requests?state=opened&updated_after=${nowISO}`
+    );
 
-  Commits.findOne()
-    .sort({ date: -1 })
-    .limit(1)
-    .then((doc) => {
-      if (doc) last_commit_date = doc.commitDate;
-    });
+    const _mergeRequests = apiRequest.data;
 
-  const intervalID = setInterval(function () {
-    console.log(last_commit_date);
-
-    instance
-      .get(
-        `https://gitlab.com/api/v4/groups/${process.env.GITLAB_GROUP}/projects?include_subgroups=true`
-      )
-      .then((res) => {
-        res.data.map((project) => {
-          instance
-            .get(
-              `https://gitlab.com/api/v4/projects/${project.id}/repository/branches`
-            )
-            .then((res) => {
-              res.data.map((branch) => {
-                instance
-                  .get(
-                    `https://gitlab.com/api/v4/projects/${
-                      project.id
-                    }/repository/commits?since=${
-                      last_commit_date ? last_commit_date : today
-                    }&ref_name=${branch.name}`
-                  )
-                  .then((res) => {
-                    res.data.map((commit) => {
-                      last_commit_date = commit.committed_date;
-                      Commits.findOne({ commitID: commit.id }).then((doc) => {
-                        if (!doc) {
-                          Commits.create({
-                            commitID: commit.id,
-                            commitMessage: commit.title,
-                            commitURL: commit.web_url,
-                            commitDate: commit.committed_date,
-                            projectName: project.name,
-                            authorName: commit.author_name,
-                          }).then(() => {
-                            const _receipt_channel = related_channels.find(
-                              (channel) =>
-                                channel.name === project.namespace.name
-                            );
-                            const _message = `:loudspeaker: New Commit\n:classical_building: Project: ${project.name}\n:leaves: Branch: ${branch.name}\n:keyboard: By: ${commit.author_name}\n:newspaper: Message: "${commit.title}" \n:link: URL: ${commit.web_url} `;
-                            console.log(_message);
-                            _receipt_channel.send(_message);
-                          });
-                        }
-                      });
-                    });
-                  })
-                  .catch((error) => {
-                    console.log(error);
-                  });
-              });
-            });
-        });
+    _mergeRequests.map((mr) => {
+      MergeRequests.findOneAndUpdate(
+        { mergeRequestID: mr.id },
+        {
+          mergeRequestID: mr.id,
+          state: mr.state,
+          title: mr.title,
+          description: mr.description,
+          taskID: mr.source_branch,
+          taskProject: mr.references.full.split("!")[0].split("/")[1],
+          taskAssignee: mr.author.name,
+          taskReviewer: mr.assignee.name,
+          url: mr.web_url,
+        },
+        {
+          returnOriginal: false,
+          upsert: true,
+        }
+      ).then((doc) => {
+        const _receipt_channel = related_channels.find(
+          (channel) => channel.name === doc.taskProject
+        );
+        const _message = `:loudspeaker: Merge Request Update\n:information_source: State: ${doc.state}\n:atom_symbol: Project: ${doc.taskProject}\n:card_index: Task ID: ${doc.taskID}\n:abc: Title: "${doc.title}" \n:speech_balloon: Description: "${doc.description}" \n:keyboard: Task Assignee: ${doc.taskAssignee}\n:mag: Task Reviewer: ${doc.taskReviewer}\n:link: URL: ${doc.url} `;
+        console.log(_message);
+        _receipt_channel.send(_message);
       });
+    });
   }, 60000);
-});
-
-bot.on("message", (msg) => {
-  const args = msg.content.split(/ +/);
-  const command = args.shift().toLowerCase();
-  console.info(`Called command: ${command}`);
-
-  if (!bot.commands.has(command)) return;
-
-  try {
-    bot.commands.get(command).execute(msg, args);
-  } catch (error) {
-    console.error(error);
-    msg.reply("there was an error trying to execute that command!");
-  }
 });
